@@ -1,239 +1,3 @@
-<!-- <!doctype html>
-<html>
-<head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>FHS Chat Widget</title>
-  <style>
-    html, body {
-      margin: 0;
-      padding: 0;
-      background: transparent;
-      width: 100%;
-      height: 100%;
-      overflow: hidden;
-      font-family: system-ui, Arial;
-    }
-
-    /* This wrapper fills the entire iframe area */
-    .wrap {
-      position: relative;
-      width: 100vw;
-      height: 100vh;
-      background: transparent;
-    }
-
-    /* Chat bubble button (always visible) */
-    #bubble {
-      position: absolute;
-      right: 14px;
-      bottom: 14px;
-      width: 56px;
-      height: 56px;
-      border-radius: 999px;
-      border: 2px solid #1a73e8;
-      background: #fff;
-      cursor: pointer;
-      display: grid;
-      place-items: center;
-      font-size: 14px;
-      line-height: 1;
-      user-select: none;
-    }
-
-    /* Chat panel popup (hidden until bubble click) */
-    #panel {
-      position: absolute;
-      right: 14px;
-      bottom: 82px;
-      width: 360px;
-      height: 480px;
-      border: 1px solid #222;
-      border-radius: 12px;
-      background: #fff;
-      display: none;
-      overflow: hidden;
-      box-shadow: 0 10px 30px rgba(0,0,0,0.12);
-    }
-
-    /* Header */
-    #top {
-      padding: 10px 12px;
-      border-bottom: 1px solid #eee;
-      font-weight: 600;
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      gap: 8px;
-    }
-
-    #close {
-      border: none;
-      background: transparent;
-      cursor: pointer;
-      font-size: 18px;
-      line-height: 1;
-      padding: 2px 6px;
-    }
-
-    /* Messages */
-    #msgs {
-      height: calc(480px - 48px - 56px);
-      overflow: auto;
-      padding: 10px 12px;
-      font-size: 14px;
-    }
-
-    .m { margin: 10px 0; }
-    .who { font-weight: 700; }
-    .bubble-text { white-space: pre-wrap; }
-
-    /* Input row */
-    #box {
-      display: flex;
-      gap: 8px;
-      padding: 10px 12px;
-      border-top: 1px solid #eee;
-      height: 56px;
-      box-sizing: border-box;
-      align-items: center;
-    }
-
-    #in {
-      flex: 1;
-      padding: 10px;
-      font-size: 14px;
-      border: 1px solid #ccc;
-      border-radius: 10px;
-      outline: none;
-    }
-
-    #send {
-      padding: 10px 12px;
-      border: 1px solid #222;
-      background: #fff;
-      border-radius: 10px;
-      cursor: pointer;
-      font-size: 14px;
-    }
-
-    /* Mobile: make panel nearly full width */
-    @media (max-width: 480px) {
-      #panel {
-        width: calc(100vw - 28px);
-        height: 70vh;
-      }
-      #msgs {
-        height: calc(70vh - 48px - 56px);
-      }
-    }
-  </style>
-</head>
-
-<body>
-  <div class="wrap">
-    <button id="bubble" aria-label="Open chat">Chat</button>
-
-    <div id="panel" role="dialog" aria-label="Chat panel">
-      <div id="top">
-        <div>Future Histories Studio</div>
-        <button id="close" aria-label="Close chat">×</button>
-      </div>
-
-      <div id="msgs"></div>
-
-      <div id="box">
-        <input id="in" placeholder="Ask a question..." />
-        <button id="send">Send</button>
-      </div>
-    </div>
-  </div>
-
-  <script>
-    // Your Render backend endpoint
-    const API_URL = "https://fhs-chatbot.onrender.com/chat";
-
-    const bubble = document.getElementById("bubble");
-    const panel  = document.getElementById("panel");
-    const close  = document.getElementById("close");
-    const msgs   = document.getElementById("msgs");
-    const inp    = document.getElementById("in");
-    const send   = document.getElementById("send");
-
-    let greeted = false;
-
-    function escapeHtml(s) {
-      return s.replace(/[&<>"']/g, c => ({
-        "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"
-      }[c]));
-    }
-
-    function addMsg(who, text) {
-      const div = document.createElement("div");
-      div.className = "m";
-      div.innerHTML = `<div class="who">${who}</div><div class="bubble-text">${escapeHtml(text)}</div>`;
-      msgs.appendChild(div);
-      msgs.scrollTop = msgs.scrollHeight;
-      return div;
-    }
-
-    function openPanel() {
-      panel.style.display = "block";
-      if (!greeted) {
-        greeted = true;
-        addMsg("Bot", "Hi. Ask me anything based on the provided documents.");
-      }
-      setTimeout(() => inp.focus(), 50);
-    }
-
-    function closePanel() {
-      panel.style.display = "none";
-    }
-
-    bubble.onclick = () => {
-      if (panel.style.display === "block") closePanel();
-      else openPanel();
-    };
-
-    close.onclick = closePanel;
-
-    async function ask() {
-      const q = (inp.value || "").trim();
-      if (!q) return;
-
-      inp.value = "";
-      addMsg("You", q);
-      const thinking = addMsg("Bot", "Thinking...");
-
-      try {
-        const r = await fetch(API_URL, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ message: q })
-        });
-
-        const j = await r.json();
-        thinking.remove();
-
-        const ans = (j && j.answer) ? j.answer : "I do not have that information in the provided materials.";
-        addMsg("Bot", ans);
-      } catch (e) {
-        thinking.remove();
-        addMsg("Bot", "Chat is unavailable right now.");
-      }
-    }
-
-    send.onclick = ask;
-    inp.addEventListener("keydown", (e) => {
-      if (e.key === "Enter") ask();
-      if (e.key === "Escape") closePanel();
-    });
-
-    // Optional: if you want the chat panel to open automatically after a short delay
-    // setTimeout(openPanel, 2000);
-  </script>
-</body>
-</html> -->
 
 <!doctype html>
 <html lang="en">
@@ -255,6 +19,7 @@
     *{box-sizing:border-box}
     body{margin:0;font-family:system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;background:transparent}
 
+    /* Floating launcher */
     #fhs-launcher{
       position:fixed;
       right:18px;
@@ -288,6 +53,7 @@
       display:none;
     }
 
+    /* Chat panel */
     #fhs-panel{
       position:fixed;
       right:18px;
@@ -333,6 +99,7 @@
     .fhs-iconbtn:hover{background:rgba(255,255,255,.06)}
     .fhs-iconbtn svg{width:18px;height:18px}
 
+    /* Messages */
     #fhs-messages{
       height:calc(100% - 52px - 70px);
       overflow:auto;
@@ -378,6 +145,7 @@
       50%{opacity:1;transform:translateY(-1px)}
     }
 
+    /* Composer */
     #fhs-composer{
       height:70px;
       border-top:1px solid var(--border);
@@ -414,9 +182,12 @@
       justify-content:center;
     }
     #fhs-send:hover{background:rgba(124,92,255,.26)}
-    #fhs-send:disabled{opacity:.55;cursor:not-allowed;}
+    #fhs-send:disabled{
+      opacity:.55;cursor:not-allowed;
+    }
     #fhs-send svg{width:18px;height:18px}
 
+    /* Small screens */
     @media (max-width: 420px){
       #fhs-panel{right:10px;left:10px;width:auto}
       #fhs-launcher{right:14px;bottom:14px}
@@ -425,8 +196,10 @@
 </head>
 <body>
 
+  <!-- Launcher -->
   <button id="fhs-launcher" aria-label="Open chat">
     <span id="fhs-badge"></span>
+    <!-- chat icon -->
     <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
       <path d="M20 12c0 3.866-3.582 7-8 7a9.3 9.3 0 0 1-3.2-.56L4 20l1.25-3.2A6.75 6.75 0 0 1 4 12c0-3.866 3.582-7 8-7s8 3.134 8 7Z" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/>
       <path d="M8 12h8" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/>
@@ -434,6 +207,7 @@
     </svg>
   </button>
 
+  <!-- Panel -->
   <section id="fhs-panel" role="dialog" aria-label="FHS chat">
     <header id="fhs-header">
       <div id="fhs-title">
@@ -442,6 +216,7 @@
       </div>
       <div id="fhs-actions">
         <button class="fhs-iconbtn" id="fhs-mute" aria-label="Toggle voice">
+          <!-- speaker icon -->
           <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
             <path d="M11 5 7.5 8H5a2 2 0 0 0-2 2v4a2 2 0 0 0 2 2h2.5L11 19V5Z" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/>
             <path d="M15.5 9.5a3.5 3.5 0 0 1 0 5" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/>
@@ -449,6 +224,7 @@
           </svg>
         </button>
         <button class="fhs-iconbtn" id="fhs-close" aria-label="Close chat">
+          <!-- X icon -->
           <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
             <path d="M7 7l10 10M17 7 7 17" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/>
           </svg>
@@ -464,6 +240,7 @@
     <div id="fhs-composer">
       <textarea id="fhs-input" placeholder="Type your question..." rows="1"></textarea>
       <button id="fhs-send" aria-label="Send">
+        <!-- send icon -->
         <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
           <path d="M4 12 20 4l-4 16-5-7-7-1Z" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/>
         </svg>
@@ -475,14 +252,11 @@
 
   <script>
     // ----------------------------
-    // CONFIG
+    // CONFIG: Set this to your deployed backend
+    // Example: https://your-service.onrender.com
     // ----------------------------
+    // const BACKEND_BASE_URL = "http://127.0.0.1:5050";
     const BACKEND_BASE_URL = "https://fhs-elevenlabs-openai-backend.onrender.com";
-
-    // UX/perf knobs
-    const CHAT_TIMEOUT_MS = 25000;     // abort /chat if it hangs
-    const AUDIO_POLL_MS = 800;         // poll interval for audio readiness
-    const AUDIO_MAX_WAIT_MS = 15000;   // stop waiting after this
 
     const launcher = document.getElementById("fhs-launcher");
     const panel = document.getElementById("fhs-panel");
@@ -519,7 +293,9 @@
 
     muteBtn.addEventListener("click", () => {
       voiceEnabled = !voiceEnabled;
+      // quick visual feedback by lowering opacity when muted
       muteBtn.style.opacity = voiceEnabled ? "1" : "0.55";
+      // stop current audio if any
       if (!voiceEnabled) {
         audioEl.pause();
         audioEl.currentTime = 0;
@@ -551,40 +327,9 @@
     function normalizeBackendUrl() {
       let u = (BACKEND_BASE_URL || "").trim();
       if (!u) return "";
+      // remove trailing slash
       if (u.endsWith("/")) u = u.slice(0, -1);
       return u;
-    }
-
-    async function fetchWithTimeout(url, opts, timeoutMs) {
-      const ac = new AbortController();
-      const t = setTimeout(() => ac.abort(), timeoutMs);
-      try {
-        const res = await fetch(url, { ...opts, signal: ac.signal });
-        return res;
-      } finally {
-        clearTimeout(t);
-      }
-    }
-
-    async function waitForAudioReady(audioUrl) {
-      const start = Date.now();
-      while (Date.now() - start < AUDIO_MAX_WAIT_MS) {
-        try {
-          // If backend returns 202 while generating, keep polling.
-          const r = await fetch(audioUrl, { method: "GET", cache: "no-store" });
-          if (r.status === 200) return true;
-          if (r.status === 404) return false;
-        } catch (e) {
-          // ignore and retry
-        }
-        await new Promise(r => setTimeout(r, AUDIO_POLL_MS));
-      }
-      return false;
-    }
-
-    async function playAudio(url) {
-      audioEl.src = url;
-      try { await audioEl.play(); } catch (e) {}
     }
 
     async function sendMessage() {
@@ -607,37 +352,25 @@
       }
 
       try {
-        // IMPORTANT: use fast mode so text returns immediately
-        const resp = await fetchWithTimeout(base + "/chat", {
+        const resp = await fetch(base + "/chat", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            message: q,
-            voice_mode: voiceEnabled ? "fast" : "none"
-          })
-        }, CHAT_TIMEOUT_MS);
+          body: JSON.stringify({ message: q, voice: voiceEnabled })
+        });
 
         const data = await resp.json();
+
         typingEl.remove();
 
         const answer = (data.answer || "").trim() || "I don’t have that information in the provided materials.";
         addMessage(answer, "bot");
 
         const audioUrl = (data.audio_url || "").trim();
-        const audioReady = !!data.audio_ready;
-
         if (voiceEnabled && audioUrl) {
+          // audio_url is absolute in our backend, but handle relative just in case
           const finalUrl = audioUrl.startsWith("http") ? audioUrl : (base + audioUrl);
-
-          if (audioReady) {
-            await playAudio(finalUrl);
-          } else {
-            // Show subtle feedback
-            const audioStatus = addMessage("Generating audio…", "bot");
-            const ok = await waitForAudioReady(finalUrl);
-            audioStatus.remove();
-            if (ok) await playAudio(finalUrl);
-          }
+          audioEl.src = finalUrl;
+          try { await audioEl.play(); } catch(e) {}
         }
 
         if (!isOpen) badge.style.display = "block";
@@ -660,11 +393,13 @@
       }
     });
 
+    // Autosize textarea
     input.addEventListener("input", () => {
       input.style.height = "48px";
       input.style.height = Math.min(input.scrollHeight, 120) + "px";
     });
 
+    // Close panel on ESC
     window.addEventListener("keydown", (e) => {
       if (e.key === "Escape" && isOpen) closeChat();
     });
